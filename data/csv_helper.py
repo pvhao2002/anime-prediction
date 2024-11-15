@@ -7,6 +7,8 @@ class CsvHelper:
         self.total_pages = None
         self.row_per_page = None
         self.data_per_page = None
+        self.file_path = 'data/Anime.csv'
+        self.all_columns = []
 
     def read_csv(self, file_path, page=1):
         self.row_per_page = 30
@@ -15,15 +17,19 @@ class CsvHelper:
         self.data_per_page = self.data[(page - 1) * self.row_per_page:page * self.row_per_page]
         return self.data_per_page, self.total_pages, self.row_per_page
 
+    def get_data_per_page(self, page):
+        self.data_per_page = self.data[(page - 1) * self.row_per_page:page * self.row_per_page]
+        return self.data_per_page
+
     def insert_data(self, data):
-        self.data = self.data.append(data, ignore_index=True)
-        self.data.to_csv('data/data.csv', index=False)
+        self.data = pd.concat([self.data, pd.DataFrame([data])], ignore_index=True)
+        self.data.to_csv(self.file_path, index=False)
         return self.data_per_page, self.get_total_pages()
 
     def update_data(self, data, index, page=1):
         # the row need to update is index in the data_per_page list then update it row in the data list
         self.data.loc[self.data_per_page.index[index]] = data
-        self.data.to_csv('data/data.csv', index=False)
+        self.data.to_csv(self.file_path, index=False)
 
         # update data_per_page list
         self.data_per_page = self.data[(page - 1) * self.row_per_page:page * self.row_per_page]
@@ -32,7 +38,7 @@ class CsvHelper:
     def delete_data(self, index, page=1):
         # the row need to delete is index in the data_per_page list then delete it row in the data list
         self.data = self.data.drop(self.data_per_page.index[index])
-        self.data.to_csv('data/data.csv', index=False)
+        self.data.to_csv(self.file_path, index=False)
 
         # update data_per_page list
         self.data_per_page = self.data[(page - 1) * self.row_per_page:page * self.row_per_page]
@@ -59,7 +65,11 @@ class CsvHelper:
         return self.total_pages
 
     def get_data(self):
-        return self.data.isnull().sum()
+        return self.data
+
+    def get_columns(self):
+        return self.data.columns
 
     def get_null_value_df(self):
         return self.data.isnull().sum()
+

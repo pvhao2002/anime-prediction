@@ -1,0 +1,37 @@
+### MÔ TẢ DỮ LIỆU
+Rank: Xếp hạng của anime trong bảng xếp hạng.
+
+Name: Tên tiếng Anh của anime.
+
+Japanese_name: Tên tiếng Nhật của anime.
+
+Type: Loại của anime, ví dụ TV, Web, OVA, Movie, Special, etc.
+
+Episodes: Số tập của anime.
+
+Studio: Studio sản xuất anime.
+
+Release_season: Mùa phát hành của anime, ví dụ Spring, Summer, Fall, Winter.
+
+Tags: Các thẻ (tags) mô tả đặc điểm và thể loại của anime.
+
+Rating: Xếp hạng của anime.
+
+Release_year: Năm phát hành của anime.
+
+End_year: Năm kết thúc của anime.
+
+Description: Mô tả nội dung của anime.
+
+Content_Warning: Cảnh báo nội dung không phù hợp với một số đối tượng.
+
+Related_Mange: Các manga liên quan đến anime.
+'''
+Thông tin về các manga liên quan có thể cung cấp cho người xem một cái nhìn toàn diện hơn về vũ trụ và cốt truyện của anime, cũng như cung cấp lời khuyên cho những ai muốn khám phá thêm thông tin bằng cách đọc manga.
+'''
+
+Related_anime: Các anime liên quan đến anime hiện tại.
+
+Voice_actors: Diễn viên lồng tiếng trong anime.
+
+staff: Nhân viên tham gia vào việc sản xuất anime.

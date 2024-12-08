@@ -1,4 +1,5 @@
 import tkinter as tk
+from datetime import datetime
 from tkinter import filedialog as fd, StringVar
 from tkinter import messagebox
 
@@ -8,12 +9,19 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from tksheet import Sheet
+from youtubesearchpython import VideosSearch
 
+from collection_gui import CollectionGUI
 from data.csv_helper import CsvHelper
 from service.chart_service import show_null_value_chart, show_chart_distribute_episodes, \
-    show_chart_top10_by_rating, show_chart_top10_studio, show_chart_release_year, show_chart_scale_chart
+    show_chart_top10_by_rating, show_chart_top10_studio, show_chart_release_year, show_chart_scale_chart, \
+    show_heat_chart
+from service.collection_service import CollectionService
 from service.data_clean_service import DataCleanService
 from service.standard_scaler_service import StandardScalerService
+from youtube_gui import YoutubeGUI
+
+current_year = datetime.now().year
 
 
 class MainGUI:
@@ -50,6 +58,8 @@ class MainGUI:
             {"name": "Voice_actors", "entry": StringVar()},
             {"name": "staff", "entry": StringVar()}
         ]
+
+        self.collection_service = CollectionService()
 
         self.current_page = 1
         self.data, self.total_pages, self.row_per_page = self.csv_helper.read_csv("data/Anime.csv")
@@ -113,8 +123,25 @@ class MainGUI:
                            selected_rows_to_end_of_window=True,
                            header_fg="white")
         self.sheet.grid(row=0, column=0, sticky="nsew")
-        self.sheet.enable_bindings()
+        self.sheet.enable_bindings("single_select",
+                                   "drag_select",
+                                   "select_all",
+                                   "column_select",
+                                   "row_select",
+                                   "column_width_resize",
+                                   "double_click_column_resize",
+                                   "arrowkeys",
+                                   "row_height_resize",
+                                   "double_click_row_resize",
+                                   "right_click_popup_menu",
+                                   "rc_select")
         self.sheet.extra_bindings("cell_select", self.on_sheet_click)
+        self.sheet.popup_menu_del_command(label=None)
+        self.sheet.popup_menu_add_command("Thêm vào bộ sưu tập", self.on_toggle_click, table_menu=False,
+                                          header_menu=False, empty_space_menu=False)
+        self.sheet.popup_menu_add_command("Tìm kiếm trên youtube", self.on_search_youtube, table_menu=False,
+                                          header_menu=False, empty_space_menu=False)
+        # self.sheet.extra_bindings("cell_double_click", self.on_toggle_click)
 
         # create two button to move next and previous page
         frame_button_page = tk.Frame(frame_data)
@@ -311,6 +338,7 @@ class MainGUI:
             {"text": "Chuẩn hóa dữ liệu", "width": 15, "command": self.scaled_data, "bg": "khaki2"},
             {"text": "Highlight", "width": 10, "command": self.highlight, "bg": "LightBlue3"},
             {"text": "Mô tả đồ án", "width": 10, "command": self.show_about_project, "bg": "light pink"},
+            {"text": "Bộ sưu tập", "width": 10, "command": self.open_collection, "bg": "light yellow"},
             {"text": "Thoát", "width": 10, "command": self.on_exit, "bg": "pink3"}
         ]
 
@@ -380,6 +408,10 @@ class MainGUI:
     def on_exit(self):
         self.root.destroy()
 
+    def open_collection(self):
+        new_window = tk.Toplevel(self.root)
+        CollectionGUI(new_window, self.collection_service.get(), self.get_center_window(700, 700))
+
     def show_about_project(self):
         new_window = tk.Toplevel(self.root)
         new_window.title("Thông tin đồ án")
@@ -402,46 +434,68 @@ class MainGUI:
             text.tag_add("bold", "1.0", "end")
 
     def insert_data(self):
-        # kiem tra trong list entry variable neu co gia tri None thi hien thong bao loi
-        for item in self.list_entry_variable:
-            if item["entry"].get() == "":
-                messagebox.showerror("Lỗi", f"Vui lòng nhập {item['name']}")
-                return
+        if not self.validate_input():
+            return
+        try:
+            row_data = self.get_dict_data()
 
-        row_data = self.get_dict_data()
+            self.data, self.total_pages = self.csv_helper.insert_data(row_data)
+            self.sheet.set_sheet_data(self.data.values.tolist())
+            self.update_paging_label()
 
-        self.data, self.total_pages = self.csv_helper.insert_data(row_data)
-        self.sheet.set_sheet_data(self.data.values.tolist())
-        self.update_paging_label()
-
-        messagebox.showinfo("Thông báo", "Thêm dữ liệu thành công")
-        self.reset_entry_fields()
+            messagebox.showinfo("Thông báo", "Thêm dữ liệu thành công")
+            self.reset_entry_fields()
+        except Exception as e:
+            messagebox.showerror("Lỗi", "Thêm dữ liệu thất bại " + str(e))
 
     def delete_data(self):
-        if self.selected_row_index is None:
+        selected_row = self.sheet.get_currently_selected()
+        if not selected_row:
             messagebox.showerror("Lỗi", "Vui lòng chọn dòng cần xóa")
             return
 
-        self.data, self.total_pages = self.csv_helper.delete_data(self.selected_row_index, self.current_page)
-        self.sheet.set_sheet_data(self.data.values.tolist())
-        self.update_paging_label()
-        self.selected_row_index = None
+        # confirm delete
+        confirm = messagebox.askyesno("Xác nhận", "Bạn có chắc chắn muốn xóa dữ liệu?")
+        if not confirm:
+            return
+
+        try:
+            self.selected_row_index = selected_row[0]
+            self.data, self.total_pages = self.csv_helper.delete_data(self.selected_row_index, self.current_page)
+            self.sheet.set_sheet_data(self.data.values.tolist())
+            self.update_paging_label()
+            self.selected_row_index = None
+            messagebox.showinfo("Thông báo", "Xóa dữ liệu thành công")
+        except Exception as e:
+            messagebox.showerror("Lỗi", "Xóa dữ liệu thất bại " + str(e))
 
     def update_data(self):
-        if self.selected_row_index is None:
-            messagebox.showerror("Lỗi", "Vui lòng chọn dòng cần xóa")
+        if not self.validate_input():
             return
 
-        data = self.get_dict_data()
-        self.data, self.total_pages = self.csv_helper.update_data(data, self.selected_row_index, self.current_page)
-        self.sheet.set_sheet_data(self.data.values.tolist())
-        self.update_paging_label()
+        selected_row = self.sheet.get_currently_selected()
+        if not selected_row:
+            messagebox.showerror("Lỗi", "Vui lòng chọn dòng cần cập nhật")
+            return
+        try:
+            data = self.get_dict_data()
+            self.data, self.total_pages = self.csv_helper.update_data(data, self.selected_row_index, self.current_page)
+            self.sheet.set_sheet_data(self.data.values.tolist())
+            self.update_paging_label()
+            self.selected_row_index = None
+            messagebox.showinfo("Thông báo", "Cập nhật dữ liệu thành công")
+        except Exception as e:
+            messagebox.showerror("Lỗi", "Cập nhật dữ liệu thất bại " + str(e))
 
     def highlight(self):
-        # highlight all row if have value None, null, empty
+        """
+           Highlight toàn bộ các ô chứa giá trị None, NaN hoặc rỗng.
+           """
         for i in range(len(self.data)):
             for j in range(len(self.data.columns)):
-                if self.data.iloc[i, j] is None or self.data.iloc[i, j] == "" or pd.isnull(self.data.iloc[i, j]):
+                value = self.data.iloc[i, j]
+                # Sử dụng `pd.isna` để kiểm tra giá trị là NaN hoặc None
+                if pd.isna(value) or value == "":
                     self.sheet.highlight_cells(row=i, column=j, bg="red")
 
     def clear_highlight(self):
@@ -473,6 +527,69 @@ class MainGUI:
             self.selected_row_index = selected_row[0]
             self.fill_entry_fields(self.data.iloc[self.selected_row_index])
 
+    def on_search_youtube(self):
+        selected_row = self.sheet.get_currently_selected()
+        if selected_row:
+            self.selected_row_index = selected_row[0]
+            print(self.data.iloc[self.selected_row_index]['Name'])
+            name = self.data.iloc[self.selected_row_index]['Name']
+            videosSearch = VideosSearch(name, limit=10)
+            results = videosSearch.result()
+
+            YoutubeGUI(results, self.get_center_window(700, 700))
+
+    def validate_input(self) -> bool:
+        # kiem tra trong list entry variable neu co gia tri None thi hien thong bao loi
+        for item in self.list_entry_variable:
+            name = item["name"]
+            val = item["entry"].get()
+            if val == "":
+                messagebox.showerror("Lỗi", f"Vui lòng nhập {name}")
+                return False
+
+            if name in ["Rank", "Episodes", "Release_year", "End_year"]:
+                try:
+                    value = int(val)
+                    if value < 0:
+                        messagebox.showerror("Lỗi", f"{name} phải lớn hơn hoặc bằng 0")
+                        return False
+
+                    if name in ["Release_year", "End_year"]:
+                        if value < 1900 or value > current_year:
+                            messagebox.showerror("Lỗi", f"{name} phải nằm trong khoảng từ 1900 đến {current_year}")
+                            return False
+                except ValueError:
+                    messagebox.showerror("Lỗi", f"{name} phải là số nguyên")
+                    return False
+            elif name != 'Rating':
+                try:
+                    float(val)
+                    messagebox.showerror("Lỗi", f"{name} không được là số")
+                    return False
+                except ValueError:
+                    pass
+            if name == 'Rating':
+                try:
+                    value = float(val)
+                    if value < 0 or value > 10:
+                        messagebox.showerror("Lỗi", "Rating phải nằm trong khoảng từ 0 đến 10")
+                        return False
+                except ValueError:
+                    messagebox.showerror("Lỗi", "Rating phải là số thực")
+                    return False
+        return True
+
+    def on_toggle_click(self, event=None):
+        selected_row = self.sheet.get_currently_selected()
+        if selected_row:
+            self.selected_row_index = selected_row[0]
+
+            success = self.collection_service.insert_data(self.data.iloc[self.selected_row_index])
+            if success:
+                messagebox.showinfo("Thành công", "Dữ liệu đã được thêm vào bộ sưu tập!")
+            else:
+                messagebox.showwarning("Trùng lặp", "Dữ liệu đã tồn tại trong bộ sưu tập!")
+
     # Define the function to fill the entry fields with the selected row data
     def fill_entry_fields(self, row_data):
         for item in self.list_entry_variable:
@@ -496,7 +613,12 @@ class MainGUI:
     def get_dict_data(self):
         row_data = {}
         for item in self.list_entry_variable:
-            row_data[item["name"]] = item["entry"].get()
+            if item['name'] == 'Rating':
+                row_data[item["name"]] = float(item["entry"].get())
+            elif item['name'] in ['Rank', 'Episodes', 'Release_year', 'End_year']:
+                row_data[item["name"]] = int(item["entry"].get())
+            else:
+                row_data[item["name"]] = item["entry"].get()
         return row_data
 
     def data_visualize(self):
@@ -566,6 +688,12 @@ class MainGUI:
             fig.tight_layout()
             draw_chart(fig, "Biểu đồ sau xử lý outlier")
 
+        def show_heatmap():
+            df_scale = self.standard_scaler_service.scale(
+                self.data_clean_service.clean_data(self.csv_helper.get_data()))
+            fig = show_heat_chart(df_scale)
+            draw_chart(fig, "Biểu đồ nhiệt")
+
         # Add a dropdown menu to select different options
         options = [
             {"text": "Biểu đồ tương quan giữa cột và số lượng giá trị null", "bg": "light blue",
@@ -577,6 +705,7 @@ class MainGUI:
             {"text": "Số lượng anime theo năm phát hành (Release_year)", "bg": "light blue",
              "command": show_anime_by_release_year},
             {"text": "Biểu đồ sau xử lý outlier", "command": show_outlier, "bg": "light blue"},
+            {"text": "Biểu đồ nhiệt", "command": show_heatmap, "bg": "light blue"},
         ]
 
         for index, opt in enumerate(options):
@@ -608,4 +737,7 @@ class MainGUI:
 
 
 if __name__ == "__main__":
+    # login_window = tk.Tk()
+    # LoginPage(login_window)
+    # login_window.mainloop()
     MainGUI()

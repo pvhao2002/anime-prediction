@@ -13,12 +13,15 @@ class CsvHelper:
     def read_csv(self, file_path, page=1):
         self.row_per_page = 30
         self.data = pd.read_csv(file_path)
+        self.format_year_int()
         self.get_total_pages()
         self.data_per_page = self.data[(page - 1) * self.row_per_page:page * self.row_per_page]
+
         return self.data_per_page, self.total_pages, self.row_per_page
 
     def get_data_per_page(self, page):
         self.data_per_page = self.data[(page - 1) * self.row_per_page:page * self.row_per_page]
+        self.format_year_int()
         return self.data_per_page
 
     def insert_data(self, data):
@@ -32,6 +35,7 @@ class CsvHelper:
         self.data.to_csv(self.file_path, index=False)
 
         # update data_per_page list
+        self.format_year_int()
         self.data_per_page = self.data[(page - 1) * self.row_per_page:page * self.row_per_page]
         return self.data_per_page, self.get_total_pages()
 
@@ -41,16 +45,19 @@ class CsvHelper:
         self.data.to_csv(self.file_path, index=False)
 
         # update data_per_page list
+        self.format_year_int()
         self.data_per_page = self.data[(page - 1) * self.row_per_page:page * self.row_per_page]
         return self.data_per_page, self.get_total_pages()
 
     def sort_data(self, column_name, page=1):
         self.data = self.data.sort_values(by=column_name)
+        self.format_year_int()
         self.data_per_page = self.data[(page - 1) * self.row_per_page:page * self.row_per_page]
         return self.data_per_page
 
     def search_data(self, keyword, page=1):
         # Search for keyword in Name, Description, type, tags no matter the case
+        self.format_year_int()
         data_search = self.data[self.data['Name'].str.contains(keyword, case=False) |
                                 self.data['Description'].str.contains(keyword, case=False) |
                                 self.data['Type'].str.contains(keyword, case=False) |
@@ -58,6 +65,7 @@ class CsvHelper:
         self.data_per_page = data_search[(page - 1) * self.row_per_page:page * self.row_per_page]
         self.total_pages = len(data_search) // self.row_per_page + (
             1 if len(data_search) % self.row_per_page != 0 else 0)
+
         return self.data_per_page, self.total_pages
 
     def get_total_pages(self):
@@ -65,6 +73,7 @@ class CsvHelper:
         return self.total_pages
 
     def get_data(self):
+        self.format_year_int()
         return self.data
 
     def get_columns(self):
@@ -73,3 +82,9 @@ class CsvHelper:
     def get_null_value_df(self):
         return self.data.isnull().sum()
 
+    def format_year_int(self):
+        # Duyệt qua các cột cần chuyển đổi
+        for column in ['Release_year', 'End_year', "Episodes"]:
+            if column in self.data.columns:
+                # Chuyển sang số nguyên Pandas Int64 (cho phép NaN)
+                self.data[column] = pd.to_numeric(self.data[column], errors='coerce').astype('Int64')

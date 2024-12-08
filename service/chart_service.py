@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import seaborn as sns
+
 
 def show_null_value_chart(data):
     # Get the column names and null counts
@@ -13,28 +13,6 @@ def show_null_value_chart(data):
     ax.set_title('Số dòng null của mỗi cột')
     ax.invert_yaxis()
     fig.tight_layout()
-    return fig
-
-
-def show_histogram_chart(data):
-    all_columns = data.columns  # Lấy tất cả các cột từ dataframe
-
-    # Tính toán số hàng và cột cho layout dựa trên số lượng biến
-    num_rows = int(np.ceil(len(all_columns) / 2))  # Làm tròn lên số hàng
-    num_cols = 2  # Giữ nguyên 2 cột
-
-    # Thiết lập kích thước biểu đồ và dpi (dots per inch)
-    fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 20), dpi=100)
-
-    # Vẽ biểu đồ histograms cho tất cả các biến, sử dụng axes đã tạo
-    for i, col in enumerate(all_columns):
-        row = i // num_cols  # Tính toán hàng dựa trên index
-        col_num = i % num_cols  # Tính toán cột dựa trên index
-        data[col].hist(ax=axes[row, col_num], bins=10)  # Vẽ trên subplot tương ứng
-        axes[row, col_num].set_title(col, fontsize=12)  # Đặt tiêu đề cho subplot, điều chỉnh fontsize
-        axes[row, col_num].set_xlabel(col, fontsize=10)  # Đặt nhãn trục x, điều chỉnh fontsize
-        axes[row, col_num].set_ylabel("Frequency", fontsize=10)  # Đặt nhãn trục y, điều chỉnh fontsize
-
     return fig
 
 
@@ -90,11 +68,18 @@ def show_chart_scale_chart(before_data, after_data):
     axes[0].set_title('Trước khi scale Release_year')
     axes[0].set_xlabel('Năm phát hành')
 
-    sns.histplot(before_data['Release_year'], kde=True, element="step", ax=axes[1])
-    axes[1].set_title('Trước khi scale', fontsize=14)
-    axes[1].set_title('Trước khi scale Release_year')
+    sns.histplot(after_data['Release_year'], kde=True, element="step", ax=axes[1])
+    axes[1].set_title('Sau khi khi scale', fontsize=14)
+    axes[1].set_title('Sau khi khi scale Release_year')
     axes[1].set_xlabel('Năm phát hành')
 
     fig.tight_layout()
     return fig
 
+
+def show_heat_chart(data):
+    fig, ax = plt.subplots(figsize=(12, 8))
+    sns.heatmap(data.corr(), annot=True, fmt='.2f', cmap='coolwarm', ax=ax)
+    ax.set_title('Biểu đồ tương quan giữa các cột')
+    fig.tight_layout()
+    return fig
